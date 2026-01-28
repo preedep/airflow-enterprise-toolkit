@@ -5,9 +5,22 @@ This DAG was automatically generated from Control-M jobs using the Airflow Enter
 Original jobs: {{ tasks | length }}
 """
 
-{%- for import in imports %}
-{{ import }}
-{%- endfor %}
+# Import Control-M base classes for enterprise features
+try:
+    from airflow_enterprise_toolkit.dag_base import ControlMDAG, OrderDateStrategy, HoldCondition
+except ImportError:
+    # Fallback if enterprise toolkit is not installed
+    from airflow import DAG
+    ControlMDAG = DAG
+    OrderDateStrategy = None
+    HoldCondition = None
+
+from airflow.macros import ds_add
+from airflow.operators.bash import BashOperator
+from airflow.operators.dummy import DummyOperator
+from airflow.sensors.filesystem import FileSensor
+from airflow.sensors.external_task import ExternalTaskSensor
+from datetime import datetime, timedelta
 
 # DAG definition
 default_args = {
@@ -27,18 +40,48 @@ default_args['{{ key }}'] = {{ value }}
 {%- endfor %}
 {%- endif %}
 
-dag = DAG(
-    '{{ dag.dag_id }}',
-    default_args=default_args,
-    description={{ dag.description | default(value="'Control-M migration DAG'") | safe }},
-    schedule_interval='{{ dag.schedule_interval }}',
-    catchup=False,
-    tags={{ tags_safe }},
-    max_active_runs={{ dag.config.max_active_runs | default(value=1) }},
-    is_paused={{ is_paused_str }},
-)
+# Use Control-M enhanced DAG if available
+if ControlMDAG and ControlMDAG != DAG:
+    # Enhanced DAG with Control-M features
+    dag = ControlMDAG(
+        '{{ dag.dag_id }}',
+        default_args=default_args,
+        description="{{ dag.description | default(value='Control-M migration DAG') }}",
+        schedule_interval='{{ dag.schedule_interval }}',
+        catchup=False,
+        tags={{ tags_safe }},
+        max_active_runs={{ dag.config.max_active_runs | default(value=1) }},
+        is_paused={{ is_paused_str }},
+        # Control-M specific configurations
+        order_date_strategy=OrderDateStrategy.CURRENT,  # Default to current order date
+        enable_hold_conditions=True,  # Enable Control-M hold conditions
+        enable_skip_conditions=True,  # Enable Control-M skip conditions
+        retain_order_date=True,  # Retain Control-M order date behavior
+    )
+else:
+    # Fallback to standard Airflow DAG
+    with DAG(
+        '{{ dag.dag_id }}',
+        default_args=default_args,
+        description="{{ dag.description | default(value='Control-M migration DAG') }}",
+        schedule_interval='{{ dag.schedule_interval }}',
+        catchup=False,
+        tags={{ tags_safe }},
+        max_active_runs={{ dag.config.max_active_runs | default(value=1) }},
+        is_paused={{ is_paused_str }},
+    ) as dag:
+        # Task definitions
+        {%- for task_def in task_definitions %}
+{{ task_def }}
+        {%- endfor %}
 
-# Task definitions
+        # Task dependencies
+        {%- for dep in dependencies %}
+{{ dep }}
+        {%- endfor %}
+
+{%- if ControlMDAG and ControlMDAG != DAG %}
+# Task definitions with Control-M enhancements
 {%- for task_def in task_definitions %}
 {{ task_def }}
 {%- endfor %}
@@ -47,6 +90,19 @@ dag = DAG(
 {%- for dep in dependencies %}
 {{ dep }}
 {%- endfor %}
+
+# Control-M Order Date Configuration
+# All tasks will automatically use Control-M order date handling
+# Order date is available as: {{ '{{ order_date }}' }} in task parameters
+
+# Control-M Hold Conditions
+# File holds, time holds, and resource holds are automatically processed
+# Hold conditions can be added using: dag.add_hold_condition(HoldCondition(...))
+
+# Control-M Skip Conditions  
+# Skip conditions are automatically evaluated before task execution
+# Skip conditions can be added using: dag.add_skip_condition(...)
+{%- endif %}
 
 # Order date handling
 {%- for task in tasks %}

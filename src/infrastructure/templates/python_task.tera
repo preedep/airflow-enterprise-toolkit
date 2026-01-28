@@ -1,16 +1,87 @@
 # {{ task.task_id }} - {{ task.operator_type }}
-{%- if order_date_config %}
-# Order date handling: {{ order_date_config.strategy }}
+{%- if task.order_date_config %}
+# Order date handling: {{ task.order_date_config.strategy }}
 {%- endif %}
+
+{%- if ControlMDAG and ControlMDAG != DAG %}
+# Enhanced task with Control-M features
 {{ task.task_id }} = {{ task.operator_type }}(
     task_id='{{ task.task_id }}',
     dag=dag,
-{%- if task_config %}
-{{ task_config }},
+{%- if task.command %}
+    bash_command='{{ task.command }}',
+{%- endif %}
+{%- if environment %}
+    env={{ environment }},
+{%- endif %}
+{%- if execution_timeout %}
+    execution_timeout=timedelta(seconds={{ execution_timeout }}),
+{%- endif %}
+{%- if task.filepath %}
+    filepath='{{ task.filepath }}',
+{%- endif %}
+{%- if task.poke_interval %}
+    poke_interval={{ task.poke_interval }},
+{%- endif %}
+{%- if task.timeout %}
+    timeout={{ task.timeout }},
+{%- endif %}
+{%- if task.external_dag_id %}
+    external_dag_id='{{ task.external_dag_id }}',
+{%- endif %}
+{%- if task.external_task_ids %}
+    external_task_ids={{ task.external_task_ids | safe }},
+{%- endif %}
+{%- if task.python_callable %}
+    python_callable={{ task.python_callable }},
+{%- endif %}
+{%- if task.python_callable_args %}
+    op_kwargs={{ task.python_callable_args | safe }},
+{%- endif %}
+    # Control-M specific parameters
+    order_date_aware=True,  # Enable Control-M order date awareness
+    hold_conditions_enabled=True,  # Enable Control-M hold conditions
+    skip_conditions_enabled=True,  # Enable Control-M skip conditions
+)
+{%- else %}
+# Standard Airflow task
+{{ task.task_id }} = {{ task.operator_type }}(
+    task_id='{{ task.task_id }}',
+    dag=dag,
+{%- if task.command %}
+    bash_command='{{ task.command }}',
+{%- endif %}
+{%- if environment %}
+    env={{ environment }},
+{%- endif %}
+{%- if execution_timeout %}
+    execution_timeout=timedelta(seconds={{ execution_timeout }}),
+{%- endif %}
+{%- if task.filepath %}
+    filepath='{{ task.filepath }}',
+{%- endif %}
+{%- if task.poke_interval %}
+    poke_interval={{ task.poke_interval }},
+{%- endif %}
+{%- if task.timeout %}
+    timeout={{ task.timeout }},
+{%- endif %}
+{%- if task.external_dag_id %}
+    external_dag_id='{{ task.external_dag_id }}',
+{%- endif %}
+{%- if task.external_task_ids %}
+    external_task_ids={{ task.external_task_ids | safe }},
+{%- endif %}
+{%- if task.python_callable %}
+    python_callable={{ task.python_callable }},
+{%- endif %}
+{%- if task.python_callable_args %}
+    op_kwargs={{ task.python_callable_args | safe }},
 {%- endif %}
 )
+{%- endif %}
 
-{%- if order_date_config and order_date_config.as_parameter %}
+{%- if task.order_date_config and task.order_date_config.as_parameter %}
 # Pass order date as parameter
-{{ task.task_id }}.op_kwargs['order_date'] = {{ order_date_config.template }}
+{{ task.task_id }}.op_kwargs['order_date'] = {{ task.order_date_config.template }}
 {%- endif %}

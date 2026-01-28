@@ -102,6 +102,16 @@ impl DagGenerator {
             config,
             dependencies,
             order_date_config,
+            environment: if job.environment.is_empty() { None } else { Some(job.environment) },
+            resources: job.resources,
+            command: Some(job.command),
+            filepath: None,
+            poke_interval: None,
+            timeout: None,
+            external_dag_id: None,
+            external_task_ids: None,
+            python_callable: None,
+            python_callable_args: None,
         })
     }
 

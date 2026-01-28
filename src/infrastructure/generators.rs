@@ -121,13 +121,37 @@ impl PythonDagGenerator {
             context.insert("order_date_config", order_date_config);
         }
 
-        // Format task configuration
-        let formatted_config = self.format_task_config(&task.config)?;
-        context.insert("task_config", &formatted_config);
+        // Add environment variables if present
+        if let Some(env_vars) = &task.environment {
+            context.insert("environment", &self.format_env_vars(env_vars));
+        }
 
+        // Add execution timeout
+        if let Some(timeout) = task.resources.timeout_minutes {
+            context.insert("execution_timeout", &(timeout * 60)); // Convert to seconds
+        }
+
+        // Render the template
         self.tera
             .render("task_template", &context)
             .context("Failed to render task template")
+    }
+
+    /// Format environment variables for Python code
+    fn format_env_vars(&self, env_vars: &std::collections::HashMap<String, String>) -> String {
+        let mut formatted = "{".to_string();
+        let mut first = true;
+        
+        for (key, value) in env_vars {
+            if !first {
+                formatted.push_str(", ");
+            }
+            formatted.push_str(&format!("\"{}\": \"{}\"", key, value));
+            first = false;
+        }
+        
+        formatted.push('}');
+        formatted
     }
 
     /// Format task configuration for Python code

@@ -221,6 +221,36 @@ pub struct AirflowTask {
     
     /// Order date handling configuration
     pub order_date_config: Option<OrderDateConfig>,
+    
+    /// Environment variables
+    pub environment: Option<HashMap<String, String>>,
+    
+    /// Resource requirements
+    pub resources: ResourceRequirements,
+    
+    /// Command to execute (for BashOperator)
+    pub command: Option<String>,
+    
+    /// File path (for FileSensor)
+    pub filepath: Option<String>,
+    
+    /// Poke interval (for sensors)
+    pub poke_interval: Option<u32>,
+    
+    /// Timeout (for sensors)
+    pub timeout: Option<u32>,
+    
+    /// External DAG ID (for ExternalTaskSensor)
+    pub external_dag_id: Option<String>,
+    
+    /// External task IDs (for ExternalTaskSensor)
+    pub external_task_ids: Option<Vec<String>>,
+    
+    /// Python callable (for PythonOperator)
+    pub python_callable: Option<String>,
+    
+    /// Python callable arguments (for PythonOperator)
+    pub python_callable_args: Option<HashMap<String, serde_json::Value>>,
 }
 
 /// Order date configuration for Airflow tasks
