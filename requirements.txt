@@ -2,9 +2,12 @@
 # 
 # This file contains Python dependencies for the Airflow base classes
 # and example DAGs. The main conversion logic is implemented in Rust.
+#
+# IMPORTANT: Use Python 3.9-3.12 for best compatibility with Airflow 3.x
+# Python 3.13+ may have compatibility issues with current Airflow versions
 
 # Core Airflow dependencies
-apache-airflow>=2.5.0,<3.0.0
+apache-airflow>=3.0.0
 
 # Database providers (optional, for database jobs)
 apache-airflow-providers-postgres>=5.0.0

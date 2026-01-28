@@ -8,8 +8,8 @@ that properly handle Control-M specific features like order dates and job holds.
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 from airflow import DAG
-from airflow.sdk.bases.operator import BaseOperator
-from airflow.sdk import TaskGroup
+from airflow.models.baseoperator import BaseOperator
+from airflow.utils.task_group import TaskGroup
 import logging
 
 logger = logging.getLogger(__name__)
@@ -73,6 +73,7 @@ class ControlMJobHoldMixin:
         file_path: str,
         poke_interval: int = 60,
         timeout: int = 3600,
+        dag=None,
         **kwargs
     ) -> BaseOperator:
         """
@@ -83,12 +84,26 @@ class ControlMJobHoldMixin:
             file_path: Path to file to wait for
             poke_interval: Check interval in seconds
             timeout: Timeout in seconds
+            dag: DAG to assign the operator to
             **kwargs: Additional operator arguments
             
         Returns:
             File sensor operator
         """
         try:
+            from airflow.providers.standard.sensors.filesystem import FileSensor
+            
+            return FileSensor(
+                task_id=task_id,
+                filepath=file_path,
+                poke_interval=poke_interval,
+                timeout=timeout,
+                mode='reschedule',
+                dag=dag,
+                **kwargs
+            )
+        except ImportError:
+            # Fallback for older Airflow versions
             from airflow.sensors.filesystem import FileSensor
             
             return FileSensor(
@@ -97,18 +112,7 @@ class ControlMJobHoldMixin:
                 poke_interval=poke_interval,
                 timeout=timeout,
                 mode='reschedule',
-                **kwargs
-            )
-        except ImportError:
-            # Fallback for older Airflow versions
-            from airflow.sensors import FileSensor
-            
-            return FileSensor(
-                task_id=task_id,
-                filepath=file_path,
-                poke_interval=poke_interval,
-                timeout=timeout,
-                mode='reschedule',
+                dag=dag,
                 **kwargs
             )
     
@@ -116,6 +120,7 @@ class ControlMJobHoldMixin:
     def create_time_hold_operator(
         task_id: str,
         target_time: str,
+        dag=None,
         **kwargs
     ) -> BaseOperator:
         """
@@ -124,22 +129,31 @@ class ControlMJobHoldMixin:
         Args:
             task_id: Task identifier
             target_time: Target time in HH:MM format
+            dag: DAG to assign the operator to
             **kwargs: Additional operator arguments
             
         Returns:
             Time sensor operator
         """
         try:
-            from airflow.sensors.time_sensor import TimeSensor
+            from airflow.providers.standard.sensors.time import TimeSensor
+            import datetime
+            
+            # Convert string time to datetime.time object
+            if isinstance(target_time, str):
+                time_obj = datetime.datetime.strptime(target_time, '%H:%M').time()
+            else:
+                time_obj = target_time
             
             return TimeSensor(
                 task_id=task_id,
-                target_time=target_time,
+                target_time=time_obj,
+                dag=dag,
                 **kwargs
             )
         except ImportError:
             # Fallback implementation using BashOperator
-            from airflow.operators.bash import BashOperator
+            from airflow.providers.standard.operators.bash import BashOperator
             
             bash_command = f"""
             current_time=$(date +%H:%M)
@@ -154,6 +168,7 @@ class ControlMJobHoldMixin:
             return BashOperator(
                 task_id=task_id,
                 bash_command=bash_command,
+                dag=dag,
                 **kwargs
             )
 
@@ -253,7 +268,7 @@ class ControlMBaseDAG(DAG, ControlMOrderDateMixin, ControlMJobHoldMixin):
         
         # Create appropriate operator based on job type
         if job_type.lower() == "python":
-            from airflow.operators.python import PythonOperator
+            from airflow.providers.standard.operators.python import PythonOperator
             
             def python_callable(**context):
                 # Execute the Python command
@@ -265,7 +280,7 @@ class ControlMBaseDAG(DAG, ControlMOrderDateMixin, ControlMJobHoldMixin):
                 **kwargs
             )
         elif job_type.lower() == "database":
-            from airflow.operators.sql import SqlOperator
+            from airflow.providers.common.sql.operators.sql import SqlOperator
             
             operator = SqlOperator(
                 task_id=task_id,
@@ -274,7 +289,7 @@ class ControlMBaseDAG(DAG, ControlMOrderDateMixin, ControlMJobHoldMixin):
             )
         else:
             # Default to BashOperator
-            from airflow.operators.bash import BashOperator
+            from airflow.providers.standard.operators.bash import BashOperator
             
             operator = BashOperator(
                 task_id=task_id,
@@ -295,19 +310,22 @@ class ControlMBaseDAG(DAG, ControlMOrderDateMixin, ControlMJobHoldMixin):
                 if hold_type == 'file':
                     hold_task = self.create_file_hold_operator(
                         task_id=hold_task_id,
-                        file_path=hold_value
+                        file_path=hold_value,
+                        dag=self
                     )
                 elif hold_type == 'time':
                     hold_task = self.create_time_hold_operator(
                         task_id=hold_task_id,
-                        target_time=hold_value
+                        target_time=hold_value,
+                        dag=self
                     )
                 else:
-                    # Manual hold - use DummyOperator
-                    from airflow.operators.dummy import DummyOperator
+                    # Manual hold - use EmptyOperator (formerly DummyOperator)
+                    from airflow.providers.standard.operators.empty import EmptyOperator
                     
-                    hold_task = DummyOperator(
+                    hold_task = EmptyOperator(
                         task_id=hold_task_id,
+                        dag=self,
                         **kwargs
                     )
                 
@@ -315,6 +333,11 @@ class ControlMBaseDAG(DAG, ControlMOrderDateMixin, ControlMJobHoldMixin):
             
             # Chain hold conditions before the main task
             if hold_tasks:
+                # Assign all tasks to the DAG
+                for hold_task in hold_tasks:
+                    hold_task.dag = self
+                operator.dag = self
+                
                 hold_tasks[-1] >> operator
                 for i in range(len(hold_tasks) - 1):
                     hold_tasks[i] >> hold_tasks[i + 1]
@@ -322,6 +345,8 @@ class ControlMBaseDAG(DAG, ControlMOrderDateMixin, ControlMJobHoldMixin):
                 # Return the first hold task as the entry point
                 return hold_tasks[0]
         
+        # Assign the operator to the DAG
+        operator.dag = self
         return operator
 
 
@@ -354,7 +379,7 @@ class ControlMTaskGroup(TaskGroup):
 # Utility functions
 def create_control_m_dag(
     dag_id: str,
-    schedule_interval: str = "@daily",
+    schedule: str = "@daily",
     start_date: Optional[datetime] = None,
     order_date_strategy: str = "current",
     tags: Optional[List[str]] = None,
@@ -365,7 +390,7 @@ def create_control_m_dag(
     
     Args:
         dag_id: DAG identifier
-        schedule_interval: Schedule interval
+        schedule: Schedule interval (renamed from schedule_interval in Airflow 3.x)
         start_date: Start date for the DAG
         order_date_strategy: Strategy for order date handling
         tags: List of tags for the DAG
@@ -382,7 +407,7 @@ def create_control_m_dag(
     
     return ControlMBaseDAG(
         dag_id=dag_id,
-        schedule_interval=schedule_interval,
+        schedule=schedule,
         start_date=start_date,
         order_date_strategy=order_date_strategy,
         tags=tags,
@@ -431,7 +456,7 @@ from airflow_enterprise_toolkit.dag_base import create_control_m_dag, convert_co
 # Create a Control-M compatible DAG
 dag = create_control_m_dag(
     dag_id="control_m_migration_example",
-    schedule_interval="@daily",
+    schedule="@daily",
     order_date_strategy="previous_business_day"
 )
 
