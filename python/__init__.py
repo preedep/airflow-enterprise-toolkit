@@ -17,8 +17,12 @@ from .dag_base import (
     convert_control_m_dependencies,
 )
 
+# Create aliases for backward compatibility
+ControlMDAG = ControlMBaseDAG
+
 __all__ = [
     "ControlMBaseDAG",
+    "ControlMDAG",  # Alias for ControlMBaseDAG
     "ControlMOrderDateMixin", 
     "ControlMJobHoldMixin",
     "ControlMTaskGroup",

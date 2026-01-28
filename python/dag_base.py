@@ -8,8 +8,8 @@ that properly handle Control-M specific features like order dates and job holds.
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 from airflow import DAG
-from airflow.models.baseoperator import BaseOperator
-from airflow.utils.task_group import TaskGroup
+from airflow.sdk.bases.operator import BaseOperator
+from airflow.sdk import TaskGroup
 import logging
 
 logger = logging.getLogger(__name__)
