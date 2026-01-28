@@ -1,0 +1,58 @@
+"""
+{{ dag.description | default(value="Generated from Control-M by Airflow Enterprise Toolkit") }}
+
+This DAG was automatically generated from Control-M jobs using the Airflow Enterprise Toolkit.
+Original jobs: {{ tasks | length }}
+"""
+
+{%- for import in imports %}
+{{ import }}
+{%- endfor %}
+
+# DAG definition
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'start_date': {{ dag.start_date | date(format="%Y, %m, %d") }},
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+{%- if dag.config.default_args %}
+# Custom default arguments from Control-M
+{%- for key, value in dag.config.default_args %}
+default_args['{{ key }}'] = {{ value }}
+{%- endfor %}
+{%- endif %}
+
+dag = DAG(
+    '{{ dag.dag_id }}',
+    default_args=default_args,
+    description={{ dag.description | default(value="'Control-M migration DAG'") | safe }},
+    schedule_interval='{{ dag.schedule_interval }}',
+    catchup=False,
+    tags={{ tags_safe }},
+    max_active_runs={{ dag.config.max_active_runs | default(value=1) }},
+    is_paused={{ is_paused_str }},
+)
+
+# Task definitions
+{%- for task_def in task_definitions %}
+{{ task_def }}
+{%- endfor %}
+
+# Task dependencies
+{%- for dep in dependencies %}
+{{ dep }}
+{%- endfor %}
+
+# Order date handling
+{%- for task in tasks %}
+{%- if task.order_date_config %}
+# Order date configuration for {{ task.task_id }}
+# Strategy: {{ task.order_date_config.strategy }}
+# Template: {{ task.order_date_config.template }}
+{%- endif %}
+{%- endfor %}

@@ -1,0 +1,48 @@
+[package]
+name = "airflow-enterprise-toolkit"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Enterprise toolkit for converting Control-M jobs to Airflow DAGs"
+license = "MIT"
+repository = "https://github.com/yourusername/airflow-enterprise-toolkit"
+keywords = ["airflow", "control-m", "etl", "dag", "migration"]
+categories = ["development-tools", "parsing"]
+
+[dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde-xml-rs = "0.6"
+quick-xml = { version = "0.31", features = ["serialize"] }
+serde_json = "1.0"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.10"
+
+# Template engine for DAG generation
+tera = "1.19"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+
+[[bin]]
+name = "aet-cli"
+path = "src/bin/cli.rs"
+
+[lib]
+name = "airflow_enterprise_toolkit"
+path = "src/lib.rs"

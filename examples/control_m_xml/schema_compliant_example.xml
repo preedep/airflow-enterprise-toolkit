@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Control-M Schema Compliant Example
+
+This XML follows the actual Control-M schema structure with DEFTABLE as root element
+and proper field names according to the XSD schema.
+-->
+<CONTROLM>
+    <DEFTABLE>
+        <FOLDER>
+            <FOLDER_NAME>SchemaCompliantPipeline</FOLDER_NAME>
+            <DESCRIPTION>Example following Control-M schema structure</DESCRIPTION>
+            <DATACENTER>DC1</DATACENTER>
+            <VERSION>9.0.20</VERSION>
+            <PLATFORM>UNIX</PLATFORM>
+            
+            <!-- Job 1: Data Extraction -->
+            <JOB>
+                <JOBNAME>DataExtraction</JOBNAME>
+                <DESCRIPTION>Extract data from source system</DESCRIPTION>
+                <CMDLINE>python3 /opt/scripts/extract_data.py --date={{ORDER_DATE}}</CMDLINE>
+                <TASKTYPE>Script</TASKTYPE>
+                <APPLICATION>DATA_PIPELINE</APPLICATION>
+                <SUB_APPLICATION>EXTRACTION</SUB_APPLICATION>
+                <OWNER>data_team</OWNER>
+                <PRIORITY>5</PRIORITY>
+                <NODEID>server01</NODEID>
+                <TIMEZONE>UTC</TIMEZONE>
+                <MAXWAIT>30</MAXWAIT>
+                <MAXRERUN>2</MAXRERUN>
+                <TIMEFROM>08:00</TIMEFROM>
+                <TIMETO>18:00</TIMETO>
+                <DAYS>MON,TUE,WED,THU,FRI</DAYS>
+                <CREATION_DATE>20231201</CREATION_DATE>
+                <CREATION_TIME>080000</CREATION_TIME>
+                
+                <!-- Variables -->
+                <VARIABLE>
+                    <NAME>LOG_LEVEL</NAME>
+                    <VALUE>INFO</VALUE>
+                </VARIABLE>
+                <VARIABLE>
+                    <NAME>SOURCE_SYSTEM</NAME>
+                    <VALUE>production</VALUE>
+                </VARIABLE>
+                
+                <!-- Quantitative Resources -->
+                <QUANTITATIVE>
+                    <NAME>MEMORY</NAME>
+                    <QUANT>2048</QUANT>
+                </QUANTITATIVE>
+                <QUANTITATIVE>
+                    <NAME>CPU</NAME>
+                    <QUANT>2</QUANT>
+                </QUANTITATIVE>
+            </JOB>
+            
+            <!-- Job 2: Data Transformation -->
+            <JOB>
+                <JOBNAME>DataTransformation</JOBNAME>
+                <DESCRIPTION>Transform extracted data</DESCRIPTION>
+                <CMDLINE>python3 /opt/scripts/transform_data.py --input={{ORDER_DATE}}_raw.csv</CMDLINE>
+                <TASKTYPE>Script</TASKTYPE>
+                <APPLICATION>DATA_PIPELINE</APPLICATION>
+                <SUB_APPLICATION>TRANSFORMATION</SUB_APPLICATION>
+                <OWNER>data_team</OWNER>
+                <PRIORITY>5</PRIORITY>
+                <NODEID>server01</NODEID>
+                <TIMEZONE>UTC</TIMEZONE>
+                <MAXWAIT>45</MAXWAIT>
+                <MAXRERUN>1</MAXRERUN>
+                <TIMEFROM>08:30</TIMEFROM>
+                <TIMETO>18:30</TIMETO>
+                <DAYS>MON,TUE,WED,THU,FRI</DAYS>
+                <CREATION_DATE>20231201</CREATION_DATE>
+                <CREATION_TIME>080100</CREATION_TIME>
+                
+                <!-- Dependency on DataExtraction -->
+                <INCOND>
+                    <NAME>DataExtraction</NAME>
+                    <OP>EQ</OP>
+                </INCOND>
+                
+                <!-- Variables -->
+                <VARIABLE>
+                    <NAME>TRANSFORMATION_RULES</NAME>
+                    <VALUE>/config/rules.json</VALUE>
+                </VARIABLE>
+                
+                <!-- AutoEdit variables (runtime variables) -->
+                <AUTOEDIT2>
+                    <NAME>BATCH_SIZE</NAME>
+                    <VALUE>10000</VALUE>
+                </AUTOEDIT2>
+            </JOB>
+            
+            <!-- Job 3: Data Loading with File Hold -->
+            <JOB>
+                <JOBNAME>DataLoading</JOBNAME>
+                <DESCRIPTION>Load transformed data to warehouse</DESCRIPTION>
+                <CMDLINE>python3 /opt/scripts/load_data.py --file={{ORDER_DATE}}_transformed.csv</CMDLINE>
+                <TASKTYPE>Script</TASKTYPE>
+                <APPLICATION>DATA_PIPELINE</APPLICATION>
+                <SUB_APPLICATION>LOADING</SUB_APPLICATION>
+                <OWNER>data_team</OWNER>
+                <PRIORITY>10</PRIORITY>
+                <NODEID>server02</NODEID>
+                <TIMEZONE>UTC</TIMEZONE>
+                <MAXWAIT>60</MAXWAIT>
+                <MAXRERUN>3</MAXRERUN>
+                <TIMEFROM>09:00</TIMEFROM>
+                <TIMETO>19:00</TIMETO>
+                <DAYS>MON,TUE,WED,THU,FRI</DAYS>
+                <CREATION_DATE>20231201</CREATION_DATE>
+                <CREATION_TIME>080200</CREATION_TIME>
+                
+                <!-- Dependency on DataTransformation -->
+                <INCOND>
+                    <NAME>DataTransformation</NAME>
+                    <OP>EQ</OP>
+                </INCOND>
+                
+                <!-- File Hold Condition -->
+                <INCOND>
+                    <NAME>FILE_HOLD:/data/input/{{ORDER_DATE}}_transformed.csv</NAME>
+                    <OP>EQ</OP>
+                </INCOND>
+                
+                <!-- Output Condition -->
+                <OUTCOND>
+                    <NAME>DataLoading_Completed</NAME>
+                    <SIGN>+</SIGN>
+                    <ODATE>ODATE</ODATE>
+                </OUTCOND>
+                
+                <!-- Variables -->
+                <VARIABLE>
+                    <NAME>WAREHOUSE_CONN</NAME>
+                    <VALUE>warehouse_prod</VALUE>
+                </VARIABLE>
+                <VARIABLE>
+                    <NAME>TARGET_TABLE</NAME>
+                    <VALUE>fact_data</VALUE>
+                </VARIABLE>
+                
+                <!-- Control Resources -->
+                <CONTROL>
+                    <NAME>DB_CONNECTION</NAME>
+                    <TYPE>DATABASE</TYPE>
+                    <ONFAIL>FAIL</ONFAIL>
+                </CONTROL>
+                
+                <!-- Shout notification -->
+                <SHOUT>
+                    <WHEN>OK</WHEN>
+                    <TIME>IMMEDIATE</TIME>
+                    <URGENCY>U</URGENCY>
+                    <DEST>data_team</DEST>
+                    <MESSAGE>Data loading completed successfully</MESSAGE>
+                </SHOUT>
+            </JOB>
+        </FOLDER>
+        
+        <!-- Smart Folder Example -->
+        <SMART_FOLDER>
+            <FOLDER_NAME>SmartDataPipeline</FOLDER_NAME>
+            <DESCRIPTION>Smart folder with sub-folders</DESCRIPTION>
+            <DATACENTER>DC1</DATACENTER>
+            <VERSION>9.0.20</VERSION>
+            <PLATFORM>UNIX</PLATFORM>
+            
+            <!-- Sub-folder for monitoring -->
+            <SUB_FOLDER>
+                <FOLDER_NAME>Monitoring</FOLDER_NAME>
+                <JOB>
+                    <JOBNAME>HealthCheck</JOBNAME>
+                    <DESCRIPTION>System health check</DESCRIPTION>
+                    <CMDLINE>python3 /opt/scripts/health_check.py</CMDLINE>
+                    <TASKTYPE>Script</TASKTYPE>
+                    <PRIORITY>1</PRIORITY>
+                    <DAYS>ALL</DAYS>
+                    <TIMEFROM>06:00</TIMEFROM>
+                    <TIMETO>22:00</TIMETO>
+                </JOB>
+            </SUB_FOLDER>
+            
+            <!-- Sub-folder for cleanup -->
+            <SUB_FOLDER>
+                <FOLDER_NAME>Cleanup</FOLDER_NAME>
+                <JOB>
+                    <JOBNAME>CleanupTempFiles</JOBNAME>
+                    <DESCRIPTION>Cleanup temporary files</DESCRIPTION>
+                    <CMDLINE>find /tmp -name "*.tmp" -mtime +1 -delete</CMDLINE>
+                    <TASKTYPE>Command</TASKTYPE>
+                    <PRIORITY>3</PRIORITY>
+                    <DAYS>SUN</DAYS>
+                    <TIMEFROM>02:00</TIMEFROM>
+                    <TIMETO>04:00</TIMETO>
+                </JOB>
+            </SUB_FOLDER>
+        </SMART_FOLDER>
+    </DEFTABLE>
+</CONTROLM>

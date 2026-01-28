@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Basic Control-M Example XML
+
+This XML represents a simple Control-M job definition that demonstrates
+the basic structure used for migration to Airflow.
+
+Jobs:
+1. DataExtraction - Extract data from source system
+2. DataTransformation - Transform extracted data (depends on DataExtraction)
+3. DataLoading - Load transformed data to warehouse (depends on DataTransformation)
+-->
+<CONTROLM>
+    <FOLDER>
+        <FOLDER_NAME>BasicDataPipeline</FOLDER_NAME>
+        <DESCRIPTION>Basic data pipeline for daily processing</DESCRIPTION>
+        
+        <!-- Job 1: Data Extraction -->
+        <JOB>
+            <JOBNAME>DataExtraction</JOBNAME>
+            <DESCRIPTION>Extract data from source production system</DESCRIPTION>
+            <COMMAND>python3 /opt/scripts/extract_data.py --date={{ORDER_DATE}} --source=production</COMMAND>
+            <JOB_TYPE>Script</JOB_TYPE>
+            <TIMEOUT>30</TIMEOUT>
+            <CREATION_DATE>20231201</CREATION_DATE>
+            <CHANGE_DATE>20231215</CHANGE_DATE>
+            
+            <SCHEDULE>
+                <DAYS>DAILY</DAYS>
+                <TIMES>08:00</TIMES>
+                <ORDER_DATE>PreviousBusinessDay</ORDER_DATE>
+            </SCHEDULE>
+            
+            <VARIABLE>
+                <NAME>LOG_LEVEL</NAME>
+                <VALUE>INFO</VALUE>
+            </VARIABLE>
+            
+            <VARIABLE>
+                <NAME>MAX_RETRIES</NAME>
+                <VALUE>2</VALUE>
+            </VARIABLE>
+        </JOB>
+        
+        <!-- Job 2: Data Transformation -->
+        <JOB>
+            <JOBNAME>DataTransformation</JOBNAME>
+            <DESCRIPTION>Transform extracted data according to business rules</DESCRIPTION>
+            <COMMAND>python3 /opt/scripts/transform_data.py --input={{ORDER_DATE}}_raw.csv --output={{ORDER_DATE}}_transformed.csv</COMMAND>
+            <JOB_TYPE>Script</JOB_TYPE>
+            <TIMEOUT>45</TIMEOUT>
+            <CREATION_DATE>20231201</CREATION_DATE>
+            <CHANGE_DATE>20231215</CHANGE_DATE>
+            
+            <SCHEDULE>
+                <DAYS>DAILY</DAYS>
+                <TIMES>08:30</TIMES>
+                <ORDER_DATE>PreviousBusinessDay</ORDER_DATE>
+            </SCHEDULE>
+            
+            <!-- Dependency on DataExtraction -->
+            <INCOND>
+                <NAME>DataExtraction</NAME>
+                <OPERATOR>EQ</OPERATOR>
+            </INCOND>
+            
+            <VARIABLE>
+                <NAME>TRANSFORMATION_RULES</NAME>
+                <VALUE>/config/transformation_rules.json</VALUE>
+            </VARIABLE>
+        </JOB>
+        
+        <!-- Job 3: Data Loading -->
+        <JOB>
+            <JOBNAME>DataLoading</JOBNAME>
+            <DESCRIPTION>Load transformed data into data warehouse</DESCRIPTION>
+            <COMMAND>python3 /opt/scripts/load_data.py --file={{ORDER_DATE}}_transformed.csv --target=warehouse</COMMAND>
+            <JOB_TYPE>Script</JOB_TYPE>
+            <TIMEOUT>60</TIMEOUT>
+            <CREATION_DATE>20231201</CREATION_DATE>
+            <CHANGE_DATE>20231215</CHANGE_DATE>
+            
+            <SCHEDULE>
+                <DAYS>DAILY</DAYS>
+                <TIMES>09:00</TIMES>
+                <ORDER_DATE>PreviousBusinessDay</ORDER_DATE>
+            </SCHEDULE>
+            
+            <!-- Dependency on DataTransformation -->
+            <INCOND>
+                <NAME>DataTransformation</NAME>
+                <OPERATOR>EQ</OPERATOR>
+            </INCOND>
+            
+            <VARIABLE>
+                <NAME>WAREHOUSE_CONN</NAME>
+                <VALUE>warehouse_prod</VALUE>
+            </VARIABLE>
+            
+            <VARIABLE>
+                <NAME>BATCH_SIZE</NAME>
+                <VALUE>10000</VALUE>
+            </VARIABLE>
+            
+            <!-- Output condition for downstream jobs -->
+            <OUTCOND>
+                <NAME>DataLoading_Completed</NAME>
+                <SIGN>+</SIGN>
+                <ODATE>ODATE</ODATE>
+            </OUTCOND>
+        </JOB>
+    </FOLDER>
+</CONTROLM>

@@ -1,0 +1,16 @@
+# {{ task.task_id }} - {{ task.operator_type }}
+{%- if order_date_config %}
+# Order date handling: {{ order_date_config.strategy }}
+{%- endif %}
+{{ task.task_id }} = {{ task.operator_type }}(
+    task_id='{{ task.task_id }}',
+    dag=dag,
+{%- if task_config %}
+{{ task_config }},
+{%- endif %}
+)
+
+{%- if order_date_config and order_date_config.as_parameter %}
+# Pass order date as parameter
+{{ task.task_id }}.op_kwargs['order_date'] = {{ order_date_config.template }}
+{%- endif %}

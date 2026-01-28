@@ -1,0 +1,31 @@
+# Airflow Enterprise Toolkit - Python Dependencies
+# 
+# This file contains Python dependencies for the Airflow base classes
+# and example DAGs. The main conversion logic is implemented in Rust.
+
+# Core Airflow dependencies
+apache-airflow>=2.5.0,<3.0.0
+
+# Database providers (optional, for database jobs)
+apache-airflow-providers-postgres>=5.0.0
+apache-airflow-providers-mysql>=3.0.0
+apache-airflow-providers-sqlite>=3.0.0
+
+# Additional providers for enhanced functionality
+apache-airflow-providers-http>=4.0.0
+apache-airflow-providers-ssh>=3.0.0
+
+# Development and testing dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
+
+# Documentation
+sphinx>=6.0.0
+sphinx-rtd-theme>=1.2.0
+
+# Utilities
+python-dateutil>=2.8.0
+pytz>=2023.3
